@@ -1,7 +1,7 @@
 import { App, SuggestModal, TFile } from 'obsidian';
 import type VaultSearchPlugin from './main';
 import { SearchResult, search, detectMode } from './search';
-import { isSemanticAvailable } from './semantic';
+import { isCliAvailable } from './semantic';
 
 // ---------------------------------------------------------------------------
 // VaultSearchModal — single modal, three modes
@@ -19,7 +19,7 @@ export class VaultSearchModal extends SuggestModal<SearchResult> {
       { command: '↩', purpose: 'open' },
       { command: 'esc', purpose: 'close' },
       { command: 'key:value', purpose: 'facet filter' },
-      { command: '?query', purpose: 'semantic (Mac)' },
+      { command: '?query', purpose: 'semantic' },
     ]);
   }
 
@@ -36,12 +36,32 @@ export class VaultSearchModal extends SuggestModal<SearchResult> {
   private updateModeIndicator(query: string): void {
     if (!this.modeIndicator) return;
     const mode = detectMode(query);
+    const backend = this.plugin.settings.semanticBackend;
+    const cli = isCliAvailable();
+    const isMobile = !!(this.app as any).isMobile;
+
+    let semanticHint: string;
+    if (backend === 'cli') {
+      semanticHint = cli
+        ? 'Semantic mode — CLI (vault_vector.py via Ollama)'
+        : 'Semantic mode — CLI not available on this device';
+    } else if (backend === 'ondevice') {
+      semanticHint = 'Semantic mode — on-device (transformers.js + nomic-embed-text-v1.5)';
+    } else {
+      // auto
+      if (isMobile) {
+        semanticHint = 'Semantic mode — on-device (iOS)';
+      } else if (cli) {
+        semanticHint = 'Semantic mode — CLI preferred, on-device fallback';
+      } else {
+        semanticHint = 'Semantic mode — on-device';
+      }
+    }
+
     const labels: Record<string, string> = {
       quick: 'Quick mode — filename + aliases',
       facet: 'Facet mode — frontmatter filters',
-      semantic: isSemanticAvailable()
-        ? 'Semantic mode (Mac-only) — vector search via vault_vector.py'
-        : 'Semantic mode requires desktop Obsidian + vault_vector.py',
+      semantic: semanticHint,
     };
     this.modeIndicator.setText(labels[mode] ?? '');
     this.modeIndicator.setAttribute('data-mode', mode);
@@ -50,7 +70,7 @@ export class VaultSearchModal extends SuggestModal<SearchResult> {
   async getSuggestions(query: string): Promise<SearchResult[]> {
     this.updateModeIndicator(query);
     if (!query.trim()) return [];
-    return search(this.plugin.index, query, this.plugin.settings);
+    return search(this.plugin.index, query, this.plugin.settings, this.plugin);
   }
 
   renderSuggestion(item: SearchResult, el: HTMLElement): void {

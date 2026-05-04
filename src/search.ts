@@ -2,10 +2,11 @@
 // Search router — dispatches to Quick, Facet, or Semantic mode
 // ---------------------------------------------------------------------------
 
+import { Plugin } from 'obsidian';
 import { IndexEntry, VaultIndex } from './index';
 import { parseFacets, applyFacets } from './facet';
 import { rankEntries, RankedEntry } from './ranking';
-import { runSemanticSearch, SemanticResult, isSemanticAvailable } from './semantic';
+import { runSemanticSearch, SemanticResult } from './semantic';
 import { VaultSearchSettings } from './settings';
 
 export type SearchMode = 'quick' | 'facet' | 'semantic';
@@ -78,15 +79,22 @@ function facetSearch(
 async function semanticSearch(
   rawQuery: string,
   settings: VaultSearchSettings,
+  plugin?: Plugin,
 ): Promise<SemanticSearchResult[]> {
-  if (!settings.semanticEnabled || !isSemanticAvailable()) {
+  if (!settings.semanticEnabled) {
     return [];
   }
 
   const query = rawQuery.replace(/^\?/, '').trim();
   if (!query) return [];
 
-  const results = await runSemanticSearch(query, settings.vectorScriptPath, settings.maxResults);
+  const results = await runSemanticSearch(
+    query,
+    settings.vectorScriptPath,
+    settings.maxResults,
+    plugin,
+    settings.semanticBackend,
+  );
   return results.map(r => ({ mode: 'semantic' as const, result: r }));
 }
 
@@ -98,12 +106,13 @@ export async function search(
   index: VaultIndex,
   query: string,
   settings: VaultSearchSettings,
+  plugin?: Plugin,
 ): Promise<SearchResult[]> {
   const mode = detectMode(query);
 
   switch (mode) {
     case 'semantic':
-      return semanticSearch(query, settings);
+      return semanticSearch(query, settings, plugin);
     case 'facet':
       return facetSearch(index, query, settings.maxResults);
     case 'quick':

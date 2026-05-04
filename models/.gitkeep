@@ -1,0 +1,3 @@
+# ONNX model weights live here after running scripts/fetch-model.sh.
+# Files in this directory are gitignored to keep the source repo small.
+# See: scripts/fetch-model.sh and README §Privacy.

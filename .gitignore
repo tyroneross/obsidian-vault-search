@@ -2,3 +2,9 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# ONNX model weights — fetched on demand by scripts/fetch-model.sh
+models/Xenova/
+models/**/*.onnx
+models/**/*.json
+!models/.gitkeep

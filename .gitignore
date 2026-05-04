@@ -4,6 +4,7 @@ dist/
 .DS_Store
 
 # ONNX model weights — fetched on demand by scripts/fetch-model.sh
+models/nomic-ai/
 models/Xenova/
 models/**/*.onnx
 models/**/*.json

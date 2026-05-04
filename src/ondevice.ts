@@ -22,8 +22,10 @@ import { pipeline, env } from '@xenova/transformers';
 // Model configuration
 // ---------------------------------------------------------------------------
 
-// Xenova mirror has confirmed transformers.js compat and is the canonical source
-const MODEL_ID_HF = 'Xenova/nomic-embed-text-v1.5';
+// nomic-ai's official ONNX export — public, no auth required, has both
+// quantized (~30MB) and full (~140MB) models under /onnx/. We previously
+// targeted Xenova/nomic-embed-text-v1.5 but that mirror is now gated.
+const MODEL_ID_HF = 'nomic-ai/nomic-embed-text-v1.5';
 const MODELS_SUBPATH = 'models';
 
 // ---------------------------------------------------------------------------

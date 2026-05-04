@@ -147,7 +147,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
     statusEl.style.cssText = 'color: var(--text-muted); font-size: 0.85em; margin-bottom: 8px;';
 
     const modelInfoEl = containerEl.createEl('p', {
-      text: `Model: ${MODEL_ID_HF} (quantized, ~30 MB download on first use — cached locally forever after)`,
+      text: `Model: ${MODEL_ID_HF} (int8-quantized, ~137 MB download on first use — cached locally forever after)`,
       cls: 'vault-search-stats',
     });
     modelInfoEl.style.cssText = 'color: var(--text-muted); font-size: 0.85em; margin-bottom: 8px;';

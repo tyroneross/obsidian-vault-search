@@ -10,8 +10,8 @@
 # carries the model files into the plugin folder automatically.
 #
 # Usage:
-#   ./scripts/fetch-model.sh           # default: quantized only (~30MB)
-#   ./scripts/fetch-model.sh --full    # also fetch full-precision (~140MB)
+#   ./scripts/fetch-model.sh           # default: int8-quantized (~137MB)
+#   ./scripts/fetch-model.sh --full    # also fetch full-precision fp32 (~550MB)
 # ----------------------------------------------------------------------------
 
 set -euo pipefail

@@ -1,0 +1,19 @@
+{
+  "name": "obsidian-vault-search",
+  "version": "0.1.0",
+  "description": "Custom Obsidian search plugin — Quick, Facet, and Semantic modes for LLM Wiki frontmatter.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "search", "frontmatter"],
+  "author": "Tyrone Ross",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.20.0",
+    "obsidian": "latest",
+    "typescript": "^5.3.0"
+  }
+}

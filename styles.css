@@ -1,0 +1,124 @@
+/* vault-search — minimal styles; Obsidian theme handles most of it */
+
+/* Mode indicator bar below the search input */
+.vault-search-mode-indicator {
+  font-size: 0.75em;
+  color: var(--text-muted);
+  padding: 2px 12px 4px;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.vault-search-mode-indicator[data-mode="semantic"] {
+  color: var(--color-purple, var(--text-accent));
+}
+
+.vault-search-mode-indicator[data-mode="facet"] {
+  color: var(--color-blue, var(--text-accent));
+}
+
+/* Result row layout */
+.vault-search-result {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.vault-search-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.vault-search-right {
+  flex-shrink: 0;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Title row */
+.vault-search-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.vault-search-title {
+  font-weight: 600;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vault-search-star {
+  color: var(--color-yellow, goldenrod);
+  font-size: 0.85em;
+  flex-shrink: 0;
+}
+
+.vault-search-score {
+  font-size: 0.75em;
+  color: var(--color-purple, var(--text-muted));
+  font-family: var(--font-monospace);
+}
+
+.vault-search-heading {
+  font-size: 0.8em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Chips row */
+.vault-search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.vault-search-chip {
+  display: inline-block;
+  font-size: 0.68em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+/* Type-specific chip colors — adapt to theme via CSS vars with fallbacks */
+.vault-search-chip--type      { background: var(--color-base-30); color: var(--text-normal); }
+.vault-search-chip--entity    { background: var(--color-blue-rgb, #3a85de22); color: var(--color-blue, #3a85de); }
+.vault-search-chip--concept   { background: var(--color-purple-rgb, #7c3aed22); color: var(--color-purple, #7c3aed); }
+.vault-search-chip--tool      { background: var(--color-green-rgb, #15803d22); color: var(--color-green, #15803d); }
+.vault-search-chip--capability{ background: var(--color-orange-rgb, #c2410c22); color: var(--color-orange, #c2410c); }
+.vault-search-chip--lab       { background: var(--color-red-rgb, #dc262622); color: var(--color-red, #dc2626); }
+.vault-search-chip--lifecycle { background: var(--color-base-25); color: var(--text-muted); }
+
+/* Path (right column) */
+.vault-search-path {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+/* Semantic preview text */
+.vault-search-preview {
+  font-size: 0.78em;
+  color: var(--text-muted);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

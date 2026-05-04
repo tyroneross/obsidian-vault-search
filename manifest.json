@@ -1,0 +1,10 @@
+{
+  "id": "vault-search",
+  "name": "Vault Search",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Custom search for the LLM Wiki — Quick (filename + aliases), Facet (typed frontmatter filters like type:lab capability:embedding), and Semantic (Mac-only via vault_vector.py).",
+  "author": "Tyrone Ross",
+  "authorUrl": "https://github.com/tyroneross",
+  "isDesktopOnly": false
+}

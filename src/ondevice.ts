@@ -16,7 +16,7 @@
 // ---------------------------------------------------------------------------
 
 import { Notice, Plugin } from 'obsidian';
-import { pipeline, env } from '@xenova/transformers';
+import type { env as TransformersEnv, pipeline as TransformersPipeline } from '@xenova/transformers';
 
 // ---------------------------------------------------------------------------
 // Model configuration
@@ -63,12 +63,18 @@ export interface OnDeviceResult {
 // Singleton embedder with warm/cold state tracking
 // ---------------------------------------------------------------------------
 
-type EmbedderPipeline = Awaited<ReturnType<typeof pipeline>>;
+type TransformersModule = {
+  pipeline: typeof TransformersPipeline;
+  env: typeof TransformersEnv;
+};
+
+type EmbedderPipeline = Awaited<ReturnType<typeof TransformersPipeline>>;
 
 let extractor: EmbedderPipeline | null = null;
 let warmState: 'cold' | 'warming' | 'ready' | 'error' = 'cold';
 let warmError: string | null = null;
 let warmPromise: Promise<EmbedderPipeline> | null = null;
+let transformersModulePromise: Promise<TransformersModule> | null = null;
 
 export function getOnDeviceModelState(): { state: typeof warmState; error: string | null } {
   return { state: warmState, error: warmError };
@@ -78,9 +84,63 @@ export function getOnDeviceModelState(): { state: typeof warmState; error: strin
  * Configure transformers.js model paths.
  * Called before first pipeline() invocation so env is set before ONNX loads.
  */
-function configureEnv(plugin: Plugin): void {
+async function withoutNodeProcess<T>(fn: () => Promise<T>): Promise<T> {
+  const globalRef = globalThis as { process?: unknown };
+  const hadProcess = Object.prototype.hasOwnProperty.call(globalRef, 'process');
+  const originalProcess = globalRef.process;
+
+  try {
+    // Obsidian desktop exposes Node globals, but the bundled plugin does not
+    // ship onnxruntime-node's native binary. Hide process while transformers.js
+    // and ONNX initialize so they select onnxruntime-web/WASM instead.
+    globalRef.process = undefined;
+    return await fn();
+  } finally {
+    if (hadProcess) {
+      globalRef.process = originalProcess;
+    } else {
+      delete globalRef.process;
+    }
+  }
+}
+
+function normalizeTransformersModule(raw: unknown): TransformersModule {
+  const candidates = [
+    raw,
+    (raw as { default?: unknown } | null)?.default,
+  ];
+
+  for (const candidate of candidates) {
+    const mod = candidate as Partial<TransformersModule> | null | undefined;
+    if (typeof mod?.pipeline === 'function' && mod.env) {
+      return { pipeline: mod.pipeline, env: mod.env };
+    }
+  }
+
+  const keys = raw && typeof raw === 'object'
+    ? Object.keys(raw).slice(0, 20).join(', ')
+    : typeof raw;
+  throw new Error(`transformers.js loaded without pipeline/env exports (${keys})`);
+}
+
+async function importTransformersRaw(): Promise<unknown> {
+  return withoutNodeProcess(() => import('@xenova/transformers'));
+}
+
+async function loadTransformers(): Promise<TransformersModule> {
+  transformersModulePromise ??= importTransformersRaw().then(normalizeTransformersModule);
+  try {
+    return await transformersModulePromise;
+  } catch (err) {
+    transformersModulePromise = null;
+    throw err;
+  }
+}
+
+async function configureEnv(plugin: Plugin, env: TransformersModule['env']): Promise<void> {
   const basePath = (plugin.app.vault.adapter as any).basePath as string;
-  const pluginModelsDir = `${basePath}/.obsidian/plugins/vault-search/${MODELS_SUBPATH}/`;
+  const pluginDir = `${basePath}/.obsidian/plugins/vault-search`;
+  const pluginModelsDir = `${pluginDir}/${MODELS_SUBPATH}/`;
 
   // Try local models dir first; if model not found there, allow HuggingFace fallback
   // (one-time download, cached locally). After download allowRemoteModels is set false
@@ -92,6 +152,52 @@ function configureEnv(plugin: Plugin): void {
   // The download goes to localModelPath cache, so it's a one-time network touch.
   // All subsequent loads are local-only (env.allowRemoteModels toggled after load).
   env.allowRemoteModels = true;
+
+  const wasm = env.backends?.onnx?.wasm;
+  if (wasm) {
+    // Obsidian's renderer-process CSP blocks fetch() against file:// URLs, so
+    // ORT cannot pull its WASM via the obvious `wasmPaths = file://...` path.
+    // Workaround: read the WASM bytes via the vault adapter (works on desktop
+    // AND iOS, no Node APIs), wrap them in Blobs, and hand ORT blob: URLs.
+    // Blob URLs are CSP-allowed in the Electron renderer.
+    //
+    // ORT 1.14 (pinned via @xenova/transformers ^2.17) exposes only
+    // `wasm.wasmPaths` — there's no `wasmBinary` field on its env. Verified
+    // against node_modules/onnxruntime-common/dist/lib/env.d.ts.
+    const wasmRel = '.obsidian/plugins/vault-search/dist/ort-wasm.wasm';
+    const simdRel = '.obsidian/plugins/vault-search/dist/ort-wasm-simd.wasm';
+    try {
+      const [wasmBuf, simdBuf] = await Promise.all([
+        plugin.app.vault.adapter.readBinary(wasmRel),
+        plugin.app.vault.adapter.readBinary(simdRel),
+      ]);
+      const wasmBlobUrl = URL.createObjectURL(
+        new Blob([wasmBuf], { type: 'application/wasm' }),
+      );
+      const simdBlobUrl = URL.createObjectURL(
+        new Blob([simdBuf], { type: 'application/wasm' }),
+      );
+      wasm.wasmPaths = {
+        'ort-wasm.wasm': wasmBlobUrl,
+        'ort-wasm-simd.wasm': simdBlobUrl,
+      };
+      wasm.numThreads = 1;
+    } catch (err) {
+      // Adapter read failed (e.g. files missing from install). Fall back to
+      // file:// URLs so we surface the real ORT error rather than masking
+      // missing assets behind a load-time exception here.
+      console.warn(
+        '[vault-search] failed to load WASM via vault adapter, falling back to file:// URLs:',
+        err,
+      );
+      const wasmBaseUrl = `file://${pluginDir}/dist/`;
+      wasm.wasmPaths = {
+        'ort-wasm.wasm': `${wasmBaseUrl}ort-wasm.wasm`,
+        'ort-wasm-simd.wasm': `${wasmBaseUrl}ort-wasm-simd.wasm`,
+      };
+      wasm.numThreads = 1;
+    }
+  }
 
   // Prefer WebGPU (iOS 26 / macOS Safari); auto-falls back to WASM SIMD
   // transformers.js handles this automatically — no explicit device override needed
@@ -106,16 +212,21 @@ export async function getEmbedder(plugin: Plugin): Promise<EmbedderPipeline> {
   if (warmPromise) return warmPromise;
 
   warmState = 'warming';
+  warmError = null;
   warmPromise = (async () => {
     try {
-      configureEnv(plugin);
+      const { pipeline, env } = await loadTransformers();
+      await configureEnv(plugin, env);
       // Use Xenova mirror — it has confirmed ONNX exports compatible with
       // transformers.js v2 and doesn't require git-lfs to obtain weights
-      const p = await pipeline('feature-extraction', MODEL_ID_HF, {
-        quantized: true, // use quantized model (~30MB) for faster load; A19 Pro handles it fine
-      });
+      const p = await withoutNodeProcess(() =>
+        pipeline('feature-extraction', MODEL_ID_HF, {
+          quantized: true, // use quantized model (~30MB) for faster load; A19 Pro handles it fine
+        })
+      );
       extractor = p;
       warmState = 'ready';
+      warmError = null;
       // After first load succeeds, disallow remote models — all subsequent loads
       // come from the local cache even if HuggingFace is unreachable
       env.allowRemoteModels = false;

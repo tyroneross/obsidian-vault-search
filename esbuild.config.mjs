@@ -28,6 +28,7 @@ const ctx = await esbuild.context({
     'fs',
     'os',
     'path',
+    'url',
     'util',
     'http',
     'https',
@@ -42,6 +43,7 @@ const ctx = await esbuild.context({
   // transformers.js references process.env.NODE_ENV to gate debug paths
   define: {
     'process.env.NODE_ENV': prod ? '"production"' : '"development"',
+    'import.meta.url': '"file:///index.js"',
   },
   // Allow @xenova/transformers to be fully traversed and bundled.
   // Its internal require() calls for onnxruntime-web are dynamic — esbuild

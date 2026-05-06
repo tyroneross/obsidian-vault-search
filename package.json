@@ -1,6 +1,6 @@
 {
   "name": "obsidian-vault-search",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Custom Obsidian search plugin — Quick, Facet, and Semantic modes for LLM Wiki frontmatter. v0.2.0 adds on-device ONNX inference via transformers.js + nomic-embed-text-v1.5 (Mac + iOS).",
   "main": "main.js",
   "scripts": {

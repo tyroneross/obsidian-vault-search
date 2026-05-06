@@ -105,6 +105,8 @@ npm run build
 mkdir -p ~/ObsidianVault/.obsidian/plugins/vault-search
 cp main.js manifest.json styles.css ~/ObsidianVault/.obsidian/plugins/vault-search/
 cp -R models ~/ObsidianVault/.obsidian/plugins/vault-search/
+mkdir -p ~/ObsidianVault/.obsidian/plugins/vault-search/dist
+cp node_modules/onnxruntime-web/dist/ort-wasm*.wasm ~/ObsidianVault/.obsidian/plugins/vault-search/dist/
 ```
 
 Then in Obsidian: Settings → Community plugins → enable **Vault Search**.

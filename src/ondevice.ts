@@ -17,14 +17,14 @@
 
 import { Notice, Plugin } from 'obsidian';
 import type { env as TransformersEnv, pipeline as TransformersPipeline } from '@xenova/transformers';
+import { selectTopK } from './semantic-protocol';
 
 // ---------------------------------------------------------------------------
 // Model configuration
 // ---------------------------------------------------------------------------
 
-// nomic-ai's official ONNX export — public, no auth required, has both
-// quantized (~30MB) and full (~140MB) models under /onnx/. We previously
-// targeted Xenova/nomic-embed-text-v1.5 but that mirror is now gated.
+// nomic-ai's official ONNX export. The local package is created by
+// scripts/fetch-model.sh; a missing local package can use the Hugging Face fallback.
 const MODEL_ID_HF = 'nomic-ai/nomic-embed-text-v1.5';
 const MODELS_SUBPATH = 'models';
 
@@ -217,8 +217,7 @@ export async function getEmbedder(plugin: Plugin): Promise<EmbedderPipeline> {
     try {
       const { pipeline, env } = await loadTransformers();
       await configureEnv(plugin, env);
-      // Use Xenova mirror — it has confirmed ONNX exports compatible with
-      // transformers.js v2 and doesn't require git-lfs to obtain weights
+      // Use the official nomic release, which exposes transformers.js-compatible ONNX assets.
       const p = await withoutNodeProcess(() =>
         pipeline('feature-extraction', MODEL_ID_HF, {
           quantized: true, // use quantized model (~30MB) for faster load; A19 Pro handles it fine
@@ -353,19 +352,26 @@ export async function semanticSearchOnDevice(
     return [];
   }
 
-  // Score all chunks
-  const scored = corpus.chunks.map(c => ({
-    chunkId: c.chunk_id,
-    pageId: c.page_id,
-    path: c.page_path,
-    heading: c.heading,
-    preview: c.content_preview,
-    score: cosine(qvec, c.embedding),
-  }));
+  if (corpus.dimension !== qvec.length) {
+    new Notice(
+      `On-device semantic index is incompatible (${corpus.dimension} dimensions; model returned ${qvec.length}). Rebuild the vector index with nomic-embed-text.`,
+      8000,
+    );
+    return [];
+  }
 
-  // Sort descending by score, return top k
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, k);
+  // Scan once and retain only k rows; this avoids sorting every corpus chunk on iOS.
+  return selectTopK(corpus.chunks, (chunk) => {
+    if (chunk.embedding.length !== qvec.length) return Number.NaN;
+    return cosine(qvec, chunk.embedding);
+  }, k).map((chunk) => ({
+    chunkId: chunk.chunk_id,
+    pageId: chunk.page_id,
+    path: chunk.page_path,
+    heading: chunk.heading,
+    preview: chunk.content_preview,
+    score: cosine(qvec, chunk.embedding),
+  }));
 }
 
 export { MODEL_ID_HF };

@@ -16,14 +16,14 @@ import {
   semanticSearchOnDevice,
   OnDeviceResult,
 } from './ondevice';
+import {
+  buildCliSearchArgs,
+  parseSemanticJson,
+  semanticCacheKey,
+  SemanticResult,
+} from './semantic-protocol';
 
-export interface SemanticResult {
-  pageId: string;
-  path: string;
-  score: string;
-  heading: string;
-  preview: string;
-}
+export type { SemanticResult } from './semantic-protocol';
 
 // Simple in-memory cache: query -> { results, expiresAt }
 interface CacheEntry {
@@ -112,45 +112,6 @@ export function resetCliAvailabilityCache(): void {
 }
 
 /**
- * Parse vault_vector.py search stdout.
- * Each result block is:
- *   "N. [0.823] page-id § heading\n   path\n   preview...\n"
- */
-export function parseSemanticOutput(stdout: string): SemanticResult[] {
-  const results: SemanticResult[] = [];
-  const LINE_RE = /^\d+\.\s+\[([0-9.]+)\]\s+(\S+)\s+§\s+(.*)$/;
-
-  const lines = stdout.split('\n');
-  let i = 0;
-  while (i < lines.length) {
-    const line = lines[i].trim();
-    const m = LINE_RE.exec(line);
-    if (m) {
-      const score = m[1];
-      const pageId = m[2];
-      const heading = m[3].trim();
-      let path = '';
-      let preview = '';
-      i++;
-      while (i < lines.length && lines[i].trim() === '') i++;
-      if (i < lines.length) {
-        path = lines[i].trim();
-        i++;
-      }
-      while (i < lines.length && lines[i].trim() === '') i++;
-      if (i < lines.length && !LINE_RE.exec(lines[i].trim())) {
-        preview = lines[i].trim().replace(/\.\.\.$/, '').trim();
-        i++;
-      }
-      results.push({ pageId, path, score, heading, preview });
-    } else {
-      i++;
-    }
-  }
-  return results;
-}
-
-/**
  * Run vault_vector.py search via child_process (CLI path).
  * Uses in-memory cache (TTL=30s, max 5 entries).
  */
@@ -160,7 +121,9 @@ function runCliSearch(
   topK: number,
 ): Promise<SemanticResult[]> {
   return new Promise((resolve) => {
-    const cached = semanticCache.get(query);
+    const expandedPath = vectorScriptPath.replace(/^~/, process.env.HOME ?? '');
+    const cacheKey = semanticCacheKey(expandedPath, query, topK);
+    const cached = semanticCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       resolve(cached.results);
       return;
@@ -172,23 +135,21 @@ function runCliSearch(
       return;
     }
 
-    const expandedPath = vectorScriptPath.replace(/^~/, process.env.HOME ?? '');
-    const cmd = `python3 "${expandedPath}" search "${query.replace(/"/g, '\\"')}" -k ${topK} --walk-graph`;
-
-    cp.exec(cmd, { timeout: 15_000 }, (err, stdout, stderr) => {
+    // execFile preserves query boundaries and does not invoke a shell.
+    cp.execFile('python3', buildCliSearchArgs(expandedPath, query, topK), { timeout: 15_000 }, (err, stdout, stderr) => {
       if (err) {
         console.warn('[vault-search] CLI semantic error:', err.message, stderr);
         resolve([]); // caller handles fallback
         return;
       }
 
-      const results = parseSemanticOutput(stdout);
+      const results = parseSemanticJson(stdout);
 
       if (semanticCache.size >= MAX_CACHE_SIZE) {
         const firstKey = semanticCache.keys().next().value;
         if (firstKey !== undefined) semanticCache.delete(firstKey);
       }
-      semanticCache.set(query, { results, expiresAt: Date.now() + CACHE_TTL_MS });
+      semanticCache.set(cacheKey, { results, expiresAt: Date.now() + CACHE_TTL_MS });
 
       resolve(results);
     });

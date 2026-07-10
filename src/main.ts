@@ -3,6 +3,7 @@ import { VaultIndex, buildEntry } from './index';
 import { VaultSearchModal } from './modal';
 import { VaultSearchSettings, DEFAULT_SETTINGS, VaultSearchSettingTab } from './settings';
 import { clearSemanticCache } from './semantic';
+import { clearCorpusCache } from './ondevice';
 
 // ---------------------------------------------------------------------------
 // VaultSearchPlugin — plugin entry point
@@ -32,6 +33,11 @@ export default class VaultSearchPlugin extends Plugin {
 
     this.registerEvent(
       this.app.vault.on('modify', async (file) => {
+        if (file.path === '.vector/embeddings.json') {
+          clearCorpusCache();
+          clearSemanticCache();
+          return;
+        }
         if (!(file instanceof TFile) || file.extension !== 'md') return;
         const entry = await buildEntry(this.app, file);
         this.index.set(file.path, entry);
@@ -77,6 +83,7 @@ export default class VaultSearchPlugin extends Plugin {
 
   onunload(): void {
     clearSemanticCache();
+    clearCorpusCache();
     console.log('[vault-search] unloaded');
   }
 

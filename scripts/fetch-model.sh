@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # ----------------------------------------------------------------------------
-# fetch-model.sh — Download Xenova/nomic-embed-text-v1.5 ONNX weights
+# fetch-model.sh — Download nomic-ai/nomic-embed-text-v1.5 ONNX weights
 #
-# Pulls the quantized model (~30MB) and tokenizer files from Hugging Face into
-# ./models/Xenova/nomic-embed-text-v1.5/ so transformers.js can load locally
+# Pulls the quantized model and tokenizer files from Hugging Face into
+# ./models/nomic-ai/nomic-embed-text-v1.5/ so transformers.js can load locally
 # without ever touching the network at runtime.
 #
 # Run this once on desktop after `npm install`. On iOS, the vault sync
 # carries the model files into the plugin folder automatically.
 #
 # Usage:
-#   ./scripts/fetch-model.sh           # default: int8-quantized (~137MB)
-#   ./scripts/fetch-model.sh --full    # also fetch full-precision fp32 (~550MB)
+#   ./scripts/fetch-model.sh           # default: quantized model
+#   ./scripts/fetch-model.sh --full    # also fetch full-precision fp32 model
 # ----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -50,10 +50,10 @@ fetch "$HF_BASE/tokenizer.json"          "$DEST/tokenizer.json"
 fetch "$HF_BASE/tokenizer_config.json"   "$DEST/tokenizer_config.json"
 fetch "$HF_BASE/special_tokens_map.json" "$DEST/special_tokens_map.json"
 
-# Quantized ONNX (default, ~30MB) — what transformers.js loads with quantized:true
+# Quantized ONNX (default) — what transformers.js loads with quantized:true
 fetch "$HF_BASE/onnx/model_quantized.onnx" "$DEST/onnx/model_quantized.onnx"
 
-# Full-precision ONNX (optional, ~140MB)
+# Full-precision ONNX (optional)
 if [[ $FETCH_FULL -eq 1 ]]; then
   fetch "$HF_BASE/onnx/model.onnx" "$DEST/onnx/model.onnx"
 fi

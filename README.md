@@ -70,17 +70,35 @@ Results show the ranked page slug, cosine score, section heading, and a preview 
 **Requirements:**
 - `.vector/embeddings.json` produced by `python3 tools/scripts/vault_vector.py embed` (run once on desktop, then synced to iOS via your vault sync of choice).
 - For CLI: Ollama running with `nomic-embed-text` pulled.
-- For on-device: ONNX weights — fetched once via `scripts/fetch-model.sh` (~137 MB quantized).
+- For on-device: local ONNX weights — fetched once via `scripts/fetch-model.sh`.
 
 The plugin caches CLI queries for 30 seconds (last 5). The on-device pipeline keeps the model warm between queries; first warm takes 2–5 s.
+
+### Agent Workflow
+
+Agents should use the vault's canonical CLIs, not simulate the Obsidian modal.
+Both return stable JSON suitable for tool calls and follow-up automation:
+
+```bash
+# Semantic, lexical, and graph-aware retrieval for questions and synthesis.
+python3 ~/ObsidianVault/tools/scripts/vault_vector.py search "your question" -k 10 --walk-graph --json
+
+# Exact and hybrid wiki lookup for page IDs, names, and structured facts.
+python3 ~/ObsidianVault/tools/scripts/wiki_index.py search "your terms" -k 10 --json
+
+# Confirm that semantic retrieval reflects the current vault before using it.
+python3 ~/ObsidianVault/tools/scripts/vault_vector.py status --check --json
+```
+
+The desktop plugin uses the same structured `vault_vector.py --json` response for its CLI backend. On-device mode stays fully local and uses the synced embeddings file; it is vector-only, so agents should prefer the CLI commands above when available.
 
 ---
 
 ## Privacy
 
-**No third-party APIs. Ever.** This plugin never calls OpenAI, Anthropic, Voyage, Cohere, or any other cloud embedding service. Two things may touch the network:
+**No third-party inference APIs.** This plugin never sends vault content to OpenAI, Anthropic, Voyage, Cohere, or any other cloud embedding service. Two things may touch the network:
 
-1. **One-time model fetch from Hugging Face** — `scripts/fetch-model.sh` downloads the public `Xenova/nomic-embed-text-v1.5` ONNX weights (~137 MB) into `models/`. After this, the model is fully local. The download is the model itself, not your data.
+1. **Model fetch from Hugging Face** — `scripts/fetch-model.sh` downloads the public `nomic-ai/nomic-embed-text-v1.5` ONNX weights into `models/`. If the local files are missing, on-device mode can also fetch the model on its first use. The download is the model itself, not your vault data.
 2. **CLI backend on desktop** — when enabled, shells out to `vault_vector.py`, which talks to your **local** Ollama (`http://127.0.0.1:11434`). Ollama is a local service; nothing leaves your machine.
 
 The on-device backend only ever talks to the local files in `.vector/embeddings.json` and the bundled ONNX model. Vault content is read-only from disk; nothing is uploaded.
@@ -98,7 +116,7 @@ cd obsidian-vault-search
 npm install
 npm run build
 
-# 2. Fetch ONNX model weights (one-time, ~137 MB)
+# 2. Fetch ONNX model weights (one-time)
 ./scripts/fetch-model.sh
 
 # 3. Copy artifacts + model to vault plugin folder

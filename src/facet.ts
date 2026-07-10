@@ -9,6 +9,12 @@ export interface ParsedFacets {
   text: string;  // remaining non-key:val tokens
 }
 
+const SUPPORTED_FACET_KEYS = new Set([
+  'type', 'entity_type', 'concept_type', 'tool_type', 'capability_kind',
+  'lab_role', 'role', 'model_lifecycle', 'current_default', 'decision_bearing',
+  'status', 'tag', 'capability', 'stack', 'lab',
+]);
+
 /**
  * Splits the query into facet tokens (key:value) and plain text tokens.
  * A facet token is any word matching /^[a-zA-Z_]+:[^\s]+$/.
@@ -21,8 +27,9 @@ export function parseFacets(query: string): ParsedFacets {
 
   for (const token of tokens) {
     const m = FACET_RE.exec(token);
-    if (m) {
-      filters.push({ key: m[1].toLowerCase(), value: m[2].toLowerCase() });
+    const key = m?.[1].toLowerCase();
+    if (m && key && SUPPORTED_FACET_KEYS.has(key)) {
+      filters.push({ key, value: m[2].toLowerCase() });
     } else {
       textTokens.push(token);
     }
@@ -112,7 +119,6 @@ function matchFacet(entry: IndexEntry, key: string, value: string): boolean {
       return (entry.parent_company?.toLowerCase().includes(value) ?? false);
 
     default:
-      // Unknown facet key — skip (don't silently fail the whole filter)
-      return true;
+      return false;
   }
 }

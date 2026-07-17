@@ -294,15 +294,41 @@ interface EmbeddingsManifest {
 const MANIFEST_PATH = '.vector/embeddings.manifest.json';
 const VEC_PATH = '.vector/embeddings.vec';
 const LEGACY_JSON_PATH = '.vector/embeddings.json';
+// Sentinel: the binary manifest file is absent (vs present-but-corrupt).
+const BINARY_STORE_ABSENT = 'BINARY_STORE_ABSENT';
 
 let corpusCache: EmbeddingsCorpus | null = null;
 let corpusCachePath: string | null = null;
 
 /** Decode a binary manifest+vec pair into an EmbeddingsCorpus with zero-copy (f32) or dequantized (int8) row embeddings. */
 async function loadBinaryCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
-  const manifestRaw = await plugin.app.vault.adapter.read(MANIFEST_PATH);
-  const manifest = JSON.parse(manifestRaw) as EmbeddingsManifest;
-  const buf = await plugin.app.vault.adapter.readBinary(VEC_PATH);
+  // A missing manifest is "absent" (fall back to legacy). A manifest that is
+  // present but unreadable/mismatched is "corrupt" (surface it — never silently
+  // degrade to a stale/no-prefix legacy store).
+  let manifestRaw: string;
+  try {
+    manifestRaw = await plugin.app.vault.adapter.read(MANIFEST_PATH);
+  } catch {
+    throw new Error(BINARY_STORE_ABSENT);
+  }
+  let manifest: EmbeddingsManifest;
+  try {
+    manifest = JSON.parse(manifestRaw) as EmbeddingsManifest;
+  } catch {
+    throw new Error(
+      'Vector store is corrupt (embeddings.manifest.json is not valid JSON). ' +
+      'Re-run `python3 tools/scripts/vault_vector.py embed --force` to rebuild the index.'
+    );
+  }
+  let buf: ArrayBuffer;
+  try {
+    buf = await plugin.app.vault.adapter.readBinary(VEC_PATH);
+  } catch {
+    throw new Error(
+      'Vector store is corrupt (embeddings.manifest.json exists but embeddings.vec is missing). ' +
+      'Re-run `python3 tools/scripts/vault_vector.py embed --force` to rebuild the index.'
+    );
+  }
 
   const { dimension, count, encoding } = manifest;
   if (!Array.isArray(manifest.chunks) || manifest.chunks.length !== count) {
@@ -366,14 +392,28 @@ export async function loadCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
     corpusCachePath = MANIFEST_PATH;
     return corpusCache;
   } catch (binaryErr) {
-    // Only fall back to legacy JSON when the binary pair itself is missing;
-    // a corrupt/mismatched binary store should surface its own clear error.
+    // Fall back to legacy JSON ONLY when the binary manifest is genuinely
+    // absent. A present-but-corrupt binary store surfaces its own error rather
+    // than silently degrading to a stale/no-prefix legacy store.
     const msg = binaryErr instanceof Error ? binaryErr.message : String(binaryErr);
-    if (msg.includes('Vector store is corrupt')) throw binaryErr;
+    if (msg !== BINARY_STORE_ABSENT) throw binaryErr;
 
     try {
       corpusCache = await loadLegacyJsonCorpus(plugin);
       corpusCachePath = MANIFEST_PATH;
+      // The legacy v0.1 store was embedded WITHOUT the nomic 'search_document: '
+      // prefix while embedQuery prefixes queries — retrieval is degraded until a
+      // re-embed produces the binary store. Warn instead of failing silently.
+      console.warn(
+        '[vault-search] binary vector store absent; using legacy embeddings.json ' +
+        '(v0.1, no task prefix — semantic retrieval is degraded). Re-run ' +
+        '`python3 tools/scripts/vault_vector.py embed` to rebuild the prefixed binary store.'
+      );
+      new Notice(
+        'Vault Search: using legacy vector store (no task prefix; degraded results). ' +
+        'Re-run vault_vector.py embed to rebuild the index.',
+        7000,
+      );
       return corpusCache;
     } catch {
       throw new Error(

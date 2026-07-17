@@ -20,6 +20,10 @@ export const DEFAULT_SETTINGS: VaultSearchSettings = {
   maxResults: 30,
   semanticEnabled: true,
   vectorScriptPath: '~/ObsidianVault/tools/scripts/vault_vector.py',
+  // 'auto' already resolves to CLI-on-desktop and on-device-ONNX-on-iOS (see
+  // semantic.ts runSemanticSearch), which is exactly the desired
+  // "desktop→CLI, iOS→ONNX" behavior. Forcing 'cli' as the shared default
+  // would strand iOS, since the CLI backend returns [] on mobile.
   semanticBackend: 'auto',
 };
 
@@ -225,14 +229,22 @@ export class VaultSearchSettingTab extends PluginSettingTab {
     const basePath = (this.plugin.app.vault.adapter as any).basePath as string;
     lines.push(`Model cache dir: ${basePath}/.obsidian/plugins/vault-search/models/`);
 
-    // embeddings.json
+    // Vector store: prefer the binary manifest, fall back to legacy full-JSON.
     try {
-      const raw = await this.plugin.app.vault.adapter.read('.vector/embeddings.json');
+      const raw = await this.plugin.app.vault.adapter.read('.vector/embeddings.manifest.json');
       const data = JSON.parse(raw);
-      lines.push(`embeddings.json: ${data.chunks?.length ?? '?'} chunks, dim=${data.dimension}, model=${data.model}`);
+      const chunkCount = data.chunks?.length ?? data.count ?? '?';
+      lines.push(`Vector store: ${chunkCount} chunks, dim=${data.dimension}, encoding=${data.encoding}, count=${data.count}, model=${data.model}`);
       lines.push(`Vector store updated: ${data.updated ?? 'unknown'}`);
     } catch {
-      lines.push('embeddings.json: NOT FOUND — run vault_vector.py embed');
+      try {
+        const raw = await this.plugin.app.vault.adapter.read('.vector/embeddings.json');
+        const data = JSON.parse(raw);
+        lines.push(`Vector store (legacy JSON): ${data.chunks?.length ?? '?'} chunks, dim=${data.dimension}, model=${data.model}`);
+        lines.push(`Vector store updated: ${data.updated ?? 'unknown'}`);
+      } catch {
+        lines.push('Vector store: NOT FOUND — run `python3 tools/scripts/vault_vector.py embed`');
+      }
     }
 
     const msg = lines.join('\n');

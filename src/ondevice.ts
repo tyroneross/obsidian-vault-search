@@ -4,15 +4,18 @@
 // Execution path:
 //   1. Loads ONNX weights from .obsidian/plugins/vault-search/models/ (if present)
 //   2. Falls back to lazy HuggingFace download on first use (cached locally forever)
-//   3. Scores query against .vector/embeddings.json using cosine similarity
+//   3. Scores query against the .vector/ binary store using cosine similarity
 //
-// Field mapping for embeddings.json v0.1 schema:
-//   chunk_id      → unique ID for the chunk
-//   page_id       → wiki page ID
-//   page_path     → vault-relative file path
-//   heading       → section heading
-//   content_preview → text snippet for display
-//   embedding     → float array, 768-dim, nomic-embed-text
+// Store format (nvec1, written by tools/scripts/vault_vector.py):
+//   .vector/embeddings.manifest.json — UTF-8 JSON metadata + per-row chunk fields
+//     (no embedding inline): chunk_id, page_id, page_path, title?, heading,
+//     content_preview, content_hash, ... plus top-level dimension/count/encoding/model.
+//   .vector/embeddings.vec — raw little-endian bytes, row-major, count x dimension.
+//     encoding "f32": IEEE-754 float32 LE, row i = bytes [i*dim*4, (i+1)*dim*4).
+//     encoding "int8": signed int8, decode f = q / 127 (near-unit vectors).
+//   Row i of embeddings.vec corresponds to chunks[i] of the manifest.
+//   Legacy fallback: .vector/embeddings.json (v0.1, full JSON with embedding
+//   inlined as number[] per chunk) is read only if the binary pair is missing.
 // ---------------------------------------------------------------------------
 
 import { Notice, Plugin } from 'obsidian';
@@ -47,7 +50,7 @@ export interface CorpusChunk {
   title?: string;
   heading: string;
   content_preview: string;
-  embedding: number[];
+  embedding: Float32Array | number[];
 }
 
 export interface OnDeviceResult {
@@ -255,12 +258,12 @@ export function resetEmbedder(): void {
 
 /**
  * Embed a search query.
- * nomic-embed-text-v1.5 uses instruction prefixes:
+ * nomic-embed-text-v1.5 requires asymmetric instruction prefixes:
  *   - "search_query: " for retrieval queries
  *   - "search_document: " for indexed passages
- * The existing .vector/embeddings.json was produced by Ollama's nomic-embed-text
- * which internally applies the document prefix. We apply the query prefix here
- * for correct asymmetric retrieval.
+ * tools/scripts/vault_vector.py embeds the corpus WITH the "search_document: "
+ * prefix already applied, so we only need to prepend the query prefix here to
+ * get correct asymmetric retrieval.
  */
 export async function embedQuery(plugin: Plugin, query: string): Promise<number[]> {
   const ex = await getEmbedder(plugin);
@@ -274,25 +277,104 @@ export async function embedQuery(plugin: Plugin, query: string): Promise<number[
 // Corpus loading
 // ---------------------------------------------------------------------------
 
+interface EmbeddingsManifest {
+  version: string;
+  format?: string;
+  provider: string;
+  model: string;
+  dimension: number;
+  count: number;
+  encoding: 'f32' | 'int8';
+  quant?: { scheme: string; scale: number } | null;
+  prefix_scheme?: string;
+  updated?: string;
+  chunks: Omit<CorpusChunk, 'embedding'>[];
+}
+
+const MANIFEST_PATH = '.vector/embeddings.manifest.json';
+const VEC_PATH = '.vector/embeddings.vec';
+const LEGACY_JSON_PATH = '.vector/embeddings.json';
+
 let corpusCache: EmbeddingsCorpus | null = null;
 let corpusCachePath: string | null = null;
 
-export async function loadCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
-  const path = '.vector/embeddings.json';
-  if (corpusCache && corpusCachePath === path) return corpusCache;
+/** Decode a binary manifest+vec pair into an EmbeddingsCorpus with zero-copy (f32) or dequantized (int8) row embeddings. */
+async function loadBinaryCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
+  const manifestRaw = await plugin.app.vault.adapter.read(MANIFEST_PATH);
+  const manifest = JSON.parse(manifestRaw) as EmbeddingsManifest;
+  const buf = await plugin.app.vault.adapter.readBinary(VEC_PATH);
 
-  let raw: string;
-  try {
-    raw = await plugin.app.vault.adapter.read(path);
-  } catch {
+  const { dimension, count, encoding } = manifest;
+  const expectedBytes = count * dimension * (encoding === 'int8' ? 1 : 4);
+  if (buf.byteLength !== expectedBytes) {
     throw new Error(
-      'No .vector/embeddings.json found. Run `python3 tools/scripts/vault_vector.py embed` to build the semantic index.'
+      `Vector store is corrupt or out of date (embeddings.vec is ${buf.byteLength} bytes, expected ${expectedBytes} for count=${count} dim=${dimension} encoding=${encoding}). ` +
+      'Re-run `python3 tools/scripts/vault_vector.py embed --force` to rebuild the index.'
     );
   }
 
-  corpusCache = JSON.parse(raw) as EmbeddingsCorpus;
-  corpusCachePath = path;
-  return corpusCache;
+  const chunks: CorpusChunk[] = new Array(count);
+  if (encoding === 'f32') {
+    const f = new Float32Array(buf);
+    for (let i = 0; i < count; i++) {
+      chunks[i] = {
+        ...manifest.chunks[i],
+        embedding: f.subarray(i * dimension, (i + 1) * dimension),
+      };
+    }
+  } else {
+    const q = new Int8Array(buf);
+    for (let i = 0; i < count; i++) {
+      const row = new Float32Array(dimension);
+      const base = i * dimension;
+      for (let j = 0; j < dimension; j++) {
+        row[j] = q[base + j] / 127;
+      }
+      chunks[i] = {
+        ...manifest.chunks[i],
+        embedding: row,
+      };
+    }
+  }
+
+  return {
+    version: manifest.version,
+    provider: manifest.provider,
+    model: manifest.model,
+    dimension,
+    chunks,
+  };
+}
+
+/** Legacy fallback: full-JSON v0.1 store with embeddings inlined per chunk. */
+async function loadLegacyJsonCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
+  const raw = await plugin.app.vault.adapter.read(LEGACY_JSON_PATH);
+  return JSON.parse(raw) as EmbeddingsCorpus;
+}
+
+export async function loadCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
+  if (corpusCache && corpusCachePath === MANIFEST_PATH) return corpusCache;
+
+  try {
+    corpusCache = await loadBinaryCorpus(plugin);
+    corpusCachePath = MANIFEST_PATH;
+    return corpusCache;
+  } catch (binaryErr) {
+    // Only fall back to legacy JSON when the binary pair itself is missing;
+    // a corrupt/mismatched binary store should surface its own clear error.
+    const msg = binaryErr instanceof Error ? binaryErr.message : String(binaryErr);
+    if (msg.includes('Vector store is corrupt')) throw binaryErr;
+
+    try {
+      corpusCache = await loadLegacyJsonCorpus(plugin);
+      corpusCachePath = MANIFEST_PATH;
+      return corpusCache;
+    } catch {
+      throw new Error(
+        'No vector store found. Run `python3 tools/scripts/vault_vector.py embed` to build the semantic index.'
+      );
+    }
+  }
 }
 
 /** Invalidate corpus cache (e.g. after re-embedding). */
@@ -305,7 +387,7 @@ export function clearCorpusCache(): void {
 // Cosine similarity (pure JS — no WASM, no numpy)
 // ---------------------------------------------------------------------------
 
-export function cosine(a: number[], b: number[]): number {
+export function cosine(a: ArrayLike<number>, b: ArrayLike<number>): number {
   let dot = 0;
   let na = 0;
   let nb = 0;

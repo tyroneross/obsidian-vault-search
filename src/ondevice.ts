@@ -305,6 +305,12 @@ async function loadBinaryCorpus(plugin: Plugin): Promise<EmbeddingsCorpus> {
   const buf = await plugin.app.vault.adapter.readBinary(VEC_PATH);
 
   const { dimension, count, encoding } = manifest;
+  if (!Array.isArray(manifest.chunks) || manifest.chunks.length !== count) {
+    throw new Error(
+      `Vector store is corrupt or out of date (manifest lists ${manifest.chunks?.length ?? 0} chunks but count=${count}). ` +
+      'Re-run `python3 tools/scripts/vault_vector.py embed --force` to rebuild the index.'
+    );
+  }
   const expectedBytes = count * dimension * (encoding === 'int8' ? 1 : 4);
   if (buf.byteLength !== expectedBytes) {
     throw new Error(

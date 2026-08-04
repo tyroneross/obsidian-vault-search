@@ -81,13 +81,13 @@ Both return stable JSON suitable for tool calls and follow-up automation:
 
 ```bash
 # Semantic, lexical, and graph-aware retrieval for questions and synthesis.
-python3 ~/ObsidianVault/tools/scripts/vault_vector.py search "your question" -k 10 --walk-graph --json
+python3 ~/personal-llm-wiki/tools/scripts/vault_vector.py search "your question" -k 10 --walk-graph --json
 
 # Exact and hybrid wiki lookup for page IDs, names, and structured facts.
-python3 ~/ObsidianVault/tools/scripts/wiki_index.py search "your terms" -k 10 --json
+python3 ~/personal-llm-wiki/tools/scripts/wiki_index.py search "your terms" -k 10 --json
 
 # Confirm that semantic retrieval reflects the current vault before using it.
-python3 ~/ObsidianVault/tools/scripts/vault_vector.py status --check --json
+python3 ~/personal-llm-wiki/tools/scripts/vault_vector.py status --check --json
 ```
 
 The desktop plugin uses the same structured `vault_vector.py --json` response for its CLI backend. On-device mode stays fully local and uses the synced embeddings file; it is vector-only, so agents should prefer the CLI commands above when available.
@@ -120,11 +120,11 @@ npm run build
 ./scripts/fetch-model.sh
 
 # 3. Copy artifacts + model to vault plugin folder
-mkdir -p ~/ObsidianVault/.obsidian/plugins/vault-search
-cp main.js manifest.json styles.css ~/ObsidianVault/.obsidian/plugins/vault-search/
-cp -R models ~/ObsidianVault/.obsidian/plugins/vault-search/
-mkdir -p ~/ObsidianVault/.obsidian/plugins/vault-search/dist
-cp node_modules/onnxruntime-web/dist/ort-wasm*.wasm ~/ObsidianVault/.obsidian/plugins/vault-search/dist/
+mkdir -p ~/personal-llm-wiki/.obsidian/plugins/vault-search
+cp main.js manifest.json styles.css ~/personal-llm-wiki/.obsidian/plugins/vault-search/
+cp -R models ~/personal-llm-wiki/.obsidian/plugins/vault-search/
+mkdir -p ~/personal-llm-wiki/.obsidian/plugins/vault-search/dist
+cp node_modules/onnxruntime-web/dist/ort-wasm*.wasm ~/personal-llm-wiki/.obsidian/plugins/vault-search/dist/
 ```
 
 Then in Obsidian: Settings → Community plugins → enable **Vault Search**.

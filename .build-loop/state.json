@@ -1,0 +1,54 @@
+{
+  "architecture": {
+    "backendHealth": {
+      "runs": {
+        "ok": true,
+        "count": 0,
+        "duration_ms": 0
+      },
+      "decisions": {
+        "ok": false,
+        "count": 0,
+        "duration_ms": 5,
+        "legacy": {
+          "ok": false,
+          "count": 0,
+          "path": "/Users/tyroneross/dev/git-folder/obsidian-vault-search/.episodic/decisions",
+          "reason": "dir_missing"
+        },
+        "canonical": {
+          "ok": false,
+          "count": 0,
+          "path": "/Users/tyroneross/dev/git-folder/build-loop-memory/projects/obsidian-vault-search/decisions",
+          "reason": "dir_missing"
+        },
+        "reason": "canonical decision store missing"
+      },
+      "semantic": {
+        "ok": false,
+        "reason": "postgres_unavailable: no DB URL (BUILD_LOOP_DATABASE_URL / DATABASE_URL / connection.env all unset)",
+        "duration_ms": 0
+      },
+      "debugger": {
+        "ok": false,
+        "reason": "debugger_unavailable: local issue dir absent",
+        "duration_ms": 0
+      },
+      "embedder": {
+        "ok": true,
+        "duration_ms": 114,
+        "backend": "mlx",
+        "dim": 1024
+      },
+      "fts": {
+        "ok": false,
+        "duration_ms": 151,
+        "reason": "query_failed:RuntimeError"
+      },
+      "generated_at": "2026-06-29T16:28:31.436232+00:00",
+      "total_duration_ms": 271,
+      "summary": "runs: OK 0 entries | decisions: DOWN canonical decision store missing | semantic: DOWN postgres_unavailable | debugger: DOWN debugger_unavailable | embedder: OK mlx/1024d 114ms | fts: DOWN query_failed"
+    }
+  }
+}}
+}

@@ -1,0 +1,91 @@
+{
+  "fingerprint": [
+    {
+      "len": 2164,
+      "mtime_ns": 1781201299064974005,
+      "name": "2026-06-11.jsonl"
+    },
+    {
+      "len": 8538,
+      "mtime_ns": 1783674460821576988,
+      "name": "2026-07-10.jsonl"
+    },
+    {
+      "len": 3547,
+      "mtime_ns": 1783868528856361665,
+      "name": "2026-07-12.jsonl"
+    },
+    {
+      "len": 3054,
+      "mtime_ns": 1784069615968828773,
+      "name": "2026-07-14.jsonl"
+    },
+    {
+      "len": 3081,
+      "mtime_ns": 1785269262778053560,
+      "name": "2026-07-28.jsonl"
+    },
+    {
+      "len": 15233,
+      "mtime_ns": 1785827743875271793,
+      "name": "2026-08-04.jsonl"
+    }
+  ],
+  "segments": [
+    {
+      "count": 4,
+      "engagement": "2026-06-11",
+      "first_seq": 1,
+      "first_ts": "2026-06-11T18:08:19Z",
+      "last_seq": 4,
+      "last_ts": "2026-06-11T18:08:19Z",
+      "segment": "2026-06-11.jsonl"
+    },
+    {
+      "count": 15,
+      "engagement": "2026-07-10",
+      "first_seq": 5,
+      "first_ts": "2026-07-10T08:50:54Z",
+      "last_seq": 19,
+      "last_ts": "2026-07-10T09:07:40Z",
+      "segment": "2026-07-10.jsonl"
+    },
+    {
+      "count": 6,
+      "engagement": "2026-07-12",
+      "first_seq": 20,
+      "first_ts": "2026-07-12T14:59:52Z",
+      "last_seq": 25,
+      "last_ts": "2026-07-12T15:02:08Z",
+      "segment": "2026-07-12.jsonl"
+    },
+    {
+      "count": 5,
+      "engagement": "2026-07-14",
+      "first_seq": 26,
+      "first_ts": "2026-07-14T22:53:34Z",
+      "last_seq": 30,
+      "last_ts": "2026-07-14T22:53:35Z",
+      "segment": "2026-07-14.jsonl"
+    },
+    {
+      "count": 5,
+      "engagement": "2026-07-28",
+      "first_seq": 31,
+      "first_ts": "2026-07-28T20:07:41Z",
+      "last_seq": 35,
+      "last_ts": "2026-07-28T20:07:42Z",
+      "segment": "2026-07-28.jsonl"
+    },
+    {
+      "count": 25,
+      "engagement": "2026-08-04",
+      "first_seq": 36,
+      "first_ts": "2026-08-04T02:25:05Z",
+      "last_seq": 60,
+      "last_ts": "2026-08-04T07:15:43Z",
+      "segment": "2026-08-04.jsonl"
+    }
+  ],
+  "updated_at": "2026-08-04T07:15:43Z"
+}

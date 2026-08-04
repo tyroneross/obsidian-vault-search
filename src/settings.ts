@@ -19,7 +19,7 @@ export interface VaultSearchSettings {
 export const DEFAULT_SETTINGS: VaultSearchSettings = {
   maxResults: 30,
   semanticEnabled: true,
-  vectorScriptPath: '~/ObsidianVault/tools/scripts/vault_vector.py',
+  vectorScriptPath: '~/personal-llm-wiki/tools/scripts/vault_vector.py',
   // 'auto' already resolves to CLI-on-desktop and on-device-ONNX-on-iOS (see
   // semantic.ts runSemanticSearch), which is exactly the desired
   // "desktop→CLI, iOS→ONNX" behavior. Forcing 'cli' as the shared default
@@ -121,7 +121,7 @@ export class VaultSearchSettingTab extends PluginSettingTab {
       .setDesc('Absolute (or ~-prefixed) path to vault_vector.py. Only used by the CLI backend.')
       .addText(text =>
         text
-          .setPlaceholder('~/ObsidianVault/tools/scripts/vault_vector.py')
+          .setPlaceholder('~/personal-llm-wiki/tools/scripts/vault_vector.py')
           .setValue(this.plugin.settings.vectorScriptPath)
           .onChange(async (value) => {
             this.plugin.settings.vectorScriptPath = value || DEFAULT_SETTINGS.vectorScriptPath;

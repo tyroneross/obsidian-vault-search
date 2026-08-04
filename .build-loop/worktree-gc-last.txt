@@ -1,0 +1,28 @@
+# Worktree report — 2026-08-04T07:15:42Z
+
+Mode: REPORT-ONLY (SessionStart never owns terminal release)
+Exit: 0
+
+## Summary
+
+worktree_reaper [REPORT-ONLY] candidates=0 finalized=0 skipped_active=0 skipped_unattributed=0 skipped_unmerged=0 errors=0
+
+## JSON
+
+```json
+{
+  "candidates": [],
+  "bundled_and_removed": [],
+  "removed_orphan": [],
+  "skipped_active": [],
+  "skipped_too_young": [],
+  "skipped_not_run": [],
+  "skipped_unattributed": [],
+  "skipped_unmerged": [],
+  "errors": [],
+  "dry_run": true,
+  "act": false,
+  "owner_released": false
+}
+
+```

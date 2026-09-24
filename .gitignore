@@ -9,3 +9,6 @@ models/Xenova/
 models/**/*.onnx
 models/**/*.json
 !models/.gitkeep
+
+# build-loop runtime state (local only)
+.build-loop/

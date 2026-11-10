@@ -30,7 +30,7 @@ right default is a separate empty wiki scaffold plus the tools.
 - Existing source of truth for the current system is split between this repo
   and the paired vault scripts:
   - `obsidian-vault-search`: Obsidian search plugin.
-  - `/Users/tyroneross/ObsidianVault/tools/scripts`: CLI query, retrieval,
+  - `<vault-path>/tools/scripts`: CLI query, retrieval,
     graph, SQLite, and ingestion-support scripts.
 
 ## Recommended Package Shape
@@ -243,7 +243,7 @@ src/
 For a work-laptop runtime package, prefer shipping the built plugin artifacts
 instead of requiring `npm install`.
 
-From `/Users/tyroneross/ObsidianVault/tools/scripts`:
+From `<vault-path>/tools/scripts`:
 
 ```text
 llmwiki
@@ -295,7 +295,7 @@ Minimum fields:
   },
   "source_paths": [
     "obsidian-vault-search",
-    "/Users/tyroneross/ObsidianVault/tools/scripts"
+    "<vault-path>/tools/scripts"
   ],
   "excluded": [
     "personal vault pages",

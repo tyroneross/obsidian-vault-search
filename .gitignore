@@ -12,3 +12,6 @@ models/**/*.json
 
 # build-loop runtime state (local only)
 .build-loop/
+
+# rally coordination records (local only)
+.rally/
